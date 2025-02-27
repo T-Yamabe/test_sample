@@ -1,0 +1,60 @@
+# GitHub Actions workflow for continuous intergration.
+name: Client App CI
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on pull request events
+  pull_request:
+    types: [
+      opened,
+      reopened,
+      synchronize,
+    ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build-python:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 mypy pylint
+
+      - name: Lint flake8
+        working-directory: cloud/sample/for_mltuner
+        run: |
+          flake8
+
+      - name: Lint mypy
+        working-directory: cloud/sample/for_mltuner
+        run: |
+          mypy
+
+      # Disable E0401: Unable to import 'module' of forxai_base
+      # and W: warning, C: convention, R: refactoring
+      - name: Lint pylint
+        working-directory: cloud/sample/for_mltuner
+        run: |
+          pylint . --disable=E0401,W,C,R
